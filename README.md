@@ -39,6 +39,24 @@ There is zero risk when you check the code all CLI commands are list commands an
 
 # Sample Output
 
+**Standalone AWS Account:**
+
+```
+[cloudshell-user@ip-10-130-86-122 ~]$ bash <(curl -Ls https://raw.githubusercontent.com/doitintl/precon/main/details.sh)
+Collecting information from AWS...
+AWS Organization is not enabled.
+Customer does not have AWS Organization and will need a new MPA.
+Checking for AWS Identity Center:
+No, AWS Identity Center is not enabled.
+Checking for AWS SCPs:
+An error occurred (AWSOrganizationsNotInUseException) when calling the ListPolicies operation: Your account is not a member of an organization.
+Checking for AWS Marketplace listings:
+No marketplace listing found.
+Checking for cost allocation tags:
+Cost allocation tags are not enabled or no tags are set.
+Information gathering complete.
+```
+
 **AWS Account with Organization Enabled:**
 
 ```[cloudshell-user@ip-10-138-188-104 ~]$ bash <(curl -Ls https://raw.githubusercontent.com/doitintl/precon/main/details.sh)
@@ -81,4 +99,5 @@ Checking for AWS Marketplace listings:
 No marketplace listing found.
 Checking for cost allocation tags:
 Cost allocation tags are not enabled or no tags are set.
-Information gathering complete.```
+Information gathering complete.
+```
