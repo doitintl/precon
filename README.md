@@ -21,7 +21,7 @@ There is zero risk when you check the code all CLI commands are list commands an
 
 # Prerequisite to Run This Script:
 
-1. Script needs to be executed by only the root user.
+1. Script needs to be executed by only the root or admin user only.
 2. Cost explorer should be enabled by customer (**If not then do manual pre consolidation**)
 
 # How to Run this script:
