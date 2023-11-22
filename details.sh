@@ -31,25 +31,44 @@ if aws organizations describe-organization --query 'Organization' &> /dev/null; 
     echo "List of enabled AWS Org services:"
     aws organizations list-aws-service-access-for-organization --query 'EnabledServicePrincipals[*].ServicePrincipal' --output table
 
-    # 7. Check for workloads in the master payer account
     echo "Checking for workloads in the master payer account:"
-    if aws ec2 describe-instances --query 'Reservations[*].Instances[*].InstanceId' --output text | grep -q 'i-'; then
-        echo "Yes, there are EC2 instances running in the root account."
-    fi
-    if aws rds describe-db-instances --query 'DBInstances[*].DBInstanceIdentifier' --output text | grep -q 'db-'; then
-        echo "Yes, there are RDS instances running in the root account."
-    fi
-    if aws eks list-clusters --query 'clusters' --output text | grep -q '.'; then
-        echo "Yes, there are EKS clusters running in the root account."
-    fi
-    if aws ecs list-clusters --query 'clusterArns' --output text | grep -q 'cluster'; then
-        echo "Yes, there are ECS clusters running in the root account."
-    fi
-    if aws apigateway get-rest-apis --query 'items[*].id' --output text | grep -q '.*'; then
-        echo "Yes, there are API Gateway instances running in the root account."
-    else
-        echo "No workloads detected in the root account."
-    fi
+workload_found=false
+
+# Check for EC2 instances
+if aws ec2 describe-instances --query 'Reservations[*].Instances[*].InstanceId' --output text | grep -q 'i-'; then
+    echo "Yes, there are EC2 instances running in the root account."
+    workload_found=true
+fi
+
+# Check for RDS instances
+if aws rds describe-db-instances --query 'DBInstances[*].DBInstanceIdentifier' --output text | grep -q 'db-'; then
+    echo "Yes, there are RDS instances running in the root account."
+    workload_found=true
+fi
+
+# Check for EKS clusters
+if aws eks list-clusters --query 'clusters' --output text | grep -q '.'; then
+    echo "Yes, there are EKS clusters running in the root account."
+    workload_found=true
+fi
+
+# Check for ECS clusters
+if aws ecs list-clusters --query 'clusterArns' --output text | grep -q 'cluster'; then
+    echo "Yes, there are ECS clusters running in the root account."
+    workload_found=true
+fi
+
+# Check for API Gateway instances
+if aws apigateway get-rest-apis --query 'items[*].id' --output text | grep -q '.*'; then
+    echo "Yes, there are API Gateway instances running in the root account."
+    workload_found=true
+fi
+
+# If no workloads are found, then output the message
+if [ "$workload_found" = false ]; then
+    echo "No workloads detected in the root account."
+fi
+
 
     # 8. What level of AWS Support does the account have?
     echo "AWS Support Plan for the account:"
