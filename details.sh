@@ -5,11 +5,15 @@ echo "Collecting information from AWS..."
 if aws organizations describe-organization --query 'Organization' &> /dev/null; then
     echo "AWS Organization is enabled."
 
-    # 1. How many accounts are there in the AWS organization?
+    # 1. Print Management Account ID
+    echo "Management Account ID of AWS Organization"
+    aws organizations describe-organization --query 'Organization.MasterAccountId' --output text
+    
+    # 2. How many accounts are there in the AWS organization?
     echo "Number of accounts in the AWS organization:"
     aws organizations list-accounts --query 'Accounts[*].Id' --output text | wc -w
 
-    # 2. Does any account have a bill above $50,000 in the last month?
+    # 3. Does any account have a bill above $50,000 in the last month?
     echo "Checking if any account has a bill above 50,000 in the last month:"
     start_date=$(date -d "-1 month -$(($(date +%d)-1)) days" +%Y-%m-%d)
     end_date=$(date -d "-$(date +%d) days" +%Y-%m-%d)
@@ -24,7 +28,7 @@ if aws organizations describe-organization --query 'Organization' &> /dev/null; 
         echo "Accounts with a bill over 50,000 in the last month: $accounts_over_50k"
     fi
 
-    # 3. Confirming the customer has an AWS Org
+    # 4. Confirming the customer has an AWS Org
     echo "Customer has AWS Organization."
 
     # 5. List all the AWS Org services that are enabled
@@ -34,35 +38,56 @@ if aws organizations describe-organization --query 'Organization' &> /dev/null; 
     echo "Checking for workloads in the master payer account:"
 workload_found=false
 
+# Create a list of AWS regions enabled in account and variable for regions 
+regions=$(aws ec2 describe-regions --query "Regions[].RegionName" --output text | tr '\t' '\n')
+
 # Check for EC2 instances
-if aws ec2 describe-instances --query 'Reservations[*].Instances[*].InstanceId' --output text | grep -q 'i-'; then
-    echo "Yes, there are EC2 instances running in the root account."
+for region in $regions; do
+    if aws ec2 describe-instances --region "$region" --query 'Reservations[*].Instances[*].InstanceId' --output text | grep -q 'i-'; then
+    echo "Yes, there are EC2 instances in $region running in the root account."
     workload_found=true
-fi
+    fi
+done
 
 # Check for RDS instances
-if aws rds describe-db-instances --query 'DBInstances[*].DBInstanceIdentifier' --output text | grep -q 'db-'; then
-    echo "Yes, there are RDS instances running in the root account."
+for region in $regions; do
+    if aws rds describe-db-instances --region "$region" --query 'DBInstances[*].DBInstanceClass' --output text | grep -q 'db'; then
+    echo "Yes, there are RDS instances in $region running in the root account."
     workload_found=true
-fi
+    fi
+done
 
 # Check for EKS clusters
-if aws eks list-clusters --query 'clusters' --output text | grep -q '.'; then
-    echo "Yes, there are EKS clusters running in the root account."
+for region in $regions; do
+    if aws eks list-clusters --region "$region" --query 'clusters' --output text | grep -q '.'; then
+    echo "Yes, there are EKS clusters in $region running in the root account."
     workload_found=true
-fi
+    fi
+done
 
 # Check for ECS clusters
-if aws ecs list-clusters --query 'clusterArns' --output text | grep -q 'cluster'; then
-    echo "Yes, there are ECS clusters running in the root account."
+for region in $regions; do
+    if aws ecs list-clusters --region "$region" --query 'clusterArns' --output text | grep -q 'cluster'; then
+    echo "Yes, there are ECS clusters in $region running in the root account."
     workload_found=true
-fi
+    fi
+done
 
-# Check for API Gateway instances
-if aws apigateway get-rest-apis --query 'items[*].id' --output text | grep -q '.*'; then
-    echo "Yes, there are API Gateway instances running in the root account."
+# Check for v1 API Gateway instances
+for region in $regions; do
+    if aws apigateway get-rest-apis --region "$region" --query 'items[*].id' --output text | grep -q '.*'; then
+    echo "Yes, there are API Gateway instances in $region running in the root account."
     workload_found=true
-fi
+    fi
+done
+
+# Check for v2 API Gateway v2 instances
+for region in $regions; do
+    if aws apigatewayv2 get-apis --region "$region" --query 'Items[*].ProtocolType' --output text | grep -qE 'HTTP|WEBSOCKET'; then
+    echo "Yes, there are v2 API Gateway instances in $region running in the root account."
+    workload_found=true
+    fi
+done
 
 # If no workloads are found, then output the message
 if [ "$workload_found" = false ]; then
@@ -70,7 +95,7 @@ if [ "$workload_found" = false ]; then
 fi
 
 
-    # 8. What level of AWS Support does the account have?
+    # 6. What level of AWS Support does the account have?
     echo "AWS Support Plan for the account:"
     if aws support describe-trusted-advisor-checks --language en &> /dev/null; then
         echo "The account is likely on the Business or Enterprise support plan."
@@ -87,10 +112,10 @@ fi
 else
     echo "AWS Organization is not enabled."
     echo "Customer does not have AWS Organization and will need a new MPA."
-    # Skipping #1, #2, #5, #7, and #8 as AWS Organization is not enabled
+    # Skipping #1-#5 as AWS Organization is not enabled
 fi
 
-# 4. Check for AWS Identity Center
+# 7. Check for AWS Identity Center
 echo "Checking for AWS Identity Center:"
 identity_center_instances=$(aws sso-admin list-instances --query 'Instances' --output json)
 if [ "$identity_center_instances" != "[]" ]; then
@@ -99,7 +124,7 @@ else
     echo "No, AWS Identity Center is not enabled."
 fi
 
-# 6. Check for AWS SCPs
+# 8. Check for AWS SCPs
 echo "Checking for AWS SCPs:"
 aws organizations list-policies --filter "SERVICE_CONTROL_POLICY" --query 'Policies' --output table
 
